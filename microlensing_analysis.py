@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 
 # Defining the paths to the simulation results
 
-run_path = 'H:/Bachelorarbeit/Daten/runs/'
-if not os.path.exists(run_path): run_path = '/work/Tit6/paul.zuern/data/runs/'
+runs_path = 'H:/Bachelorarbeit/Daten/runs/'
+if not os.path.exists(run_path): runs_path = '/work/Tit6/paul.zuern/data/runs/'
 
 # Reading the data
 
