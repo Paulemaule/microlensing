@@ -1,6 +1,7 @@
 import os
 import h5py
 import numpy as np
+from scipy.spatial import KDTree
 from matplotlib import pyplot as plt
 
 # Defining the paths to the simulation results
@@ -51,40 +52,26 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
                 
                 # Choose the axis along which the events are to be observed
                 axes = [0,1]
-                                
-                # Calculate the bins into which stars and ffp will be sorted for a faster microlensing search
-                bins1, bins2 = np.linspace(min(x[axes[0]]), max(x[axes[0]]), 100), np.linspace(min(x[axes[1]]), max(x[axes[1]]), 500)
                 
-                # Sort the stars into the bins
-                i_stars, j_stars = np.digitize(x[axes[0]][stars], bins1), np.digitize(x[axes[1]][stars], bins2)
+                # Construct the KD-Tree
+                tree = KDTree(x[axes,:][:,stars].T, leafsize=40, compact_nodes=True, copy_data=False, balanced_tree=True,)
+                #neighbours = tree.query_ball_point(x[axes,:][:,ffps].T, 0.01)
+                neighbours = tree.query_ball_point(x[axes,:][:,ffps][:,[0,1]].T, 0.01)
+                print(neighbours)
                 
-                # Loop over all free floating particles
-                for ffp_num in np.arange(len(m))[ffps]:
-                    # Sort the ffp into a bin
-                    i_ffp, j_ffp = np.digitize(x[axes[0]][ffp_num], bins1), np.digitize(x[axes[1]][ffp_num], bins2)
-                    
-                    # Retrieve all stars from the same and adjacent bins
-                    vicinity = [-1,0,1]
-                    neighbours = np.logical_and(np.isin(i_stars, i_ffp + vicinity), np.isin(j_stars, j_ffp + vicinity))
-                    
-                    # Calculate the disance in the observation plane
-                    distances = np.linalg.norm(x[axes][:,stars][:,neighbours] - x[axes,ffp_num][:,np.newaxis], axis = 0)
-                    
-                    # Find the neighbour stars that will be lensed by the free floating planet and saving them as events
-                    lensed = distances < 0.01
-                    
-                    for star_num in np.arange(len(m))[stars][neighbours][lensed]:
-                        events['time'].append(f[step]['000 Scalars'][0])
-                        events['id_ffp'].append(i[ffp_num])
-                        events['id_star'].append(i[star_num])
-                        events['x1_ffp'].append(x[0,ffp_num])
-                        events['x2_ffp'].append(x[1,ffp_num])
-                        events['x3_ffp'].append(x[2,ffp_num])
-                        events['x1_star'].append(x[0,star_num])
-                        events['x2_star'].append(x[1,star_num])
-                        events['x3_star'].append(x[2,star_num])
-                        
-                    #break
+                for ffp in neighbours:
+                    print(ffp)
+                
+                #    for star_num in np.arange(len(m))[stars][neighbours][lensed]:
+                #        events['time'].append(f[step]['000 Scalars'][0])
+                #        events['id_ffp'].append(i[ffp_num])
+                #        events['id_star'].append(i[star_num])
+                #        events['x1_ffp'].append(x[0,ffp_num])
+                #        events['x2_ffp'].append(x[1,ffp_num])
+                #        events['x3_ffp'].append(x[2,ffp_num])
+                #        events['x1_star'].append(x[0,star_num])
+                #        events['x2_star'].append(x[1,star_num])
+                #        events['x3_star'].append(x[2,star_num])
         
     print(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())))
     for e in np.arange(len(events['time'])):
