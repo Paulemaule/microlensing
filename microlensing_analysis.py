@@ -26,25 +26,22 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
     # The dictionary that will store the found microlensing events
     events = {'time': [], 'id_ffp': [], 'id_star': [], 'x1_ffp': [], 'x2_ffp': [], 'x3_ffp': [], 'x1_star':[], 'x2_star':[], 'x3_star':[]}
     
-    time_average = 5
-    
     snaps = sorted(filter(lambda x: ('snap' in x), os.listdir(runs_path + run)), key = lambda x: int(x.split('.')[1][3:]))
-    for snap in snaps:
-        #if int(snap.split('.')[1][3:]) == 20: break
-        start_time = time()
-        print('    Snapshot {} of {}'.format(snap.split('.')[1][3:], snaps[-1].split('.')[1][3:]))
+    for snap_num, snap in enumerate(snaps):
         
-        
-        time_remaining = time_average * (int(snaps[-1].split('.')[1][3:]) - int(snap.split('.')[1][3:]))
-        print('    Snapshot {} of {} | time remaining: {:.2f} min  '.format(snap.split('.')[1][3:], snaps[-1].split('.')[1][3:], time_remaining))
+        time_read = time()
+        print(f'    Snapshot \'{snap}\' of {len(snaps)} - remaining {len(snaps) - snap_num}')
         
         with h5py.File(run_path + snap) as f:
-            print('    Time for File reading: {}')
-            for step in sorted(f.keys(), key = lambda x: int(x[5:])):
-                # Exclude the timesteps with non integer times
-                if f[step]['000 Scalars'][0] % 1 != 0: continue
+            
+            print(f'      Time for File reading: {time() - time_read:.2f} sec')
+            time_search = time()
+            
+            # Sort the step keys and filter those that contain data of integer timesteps
+            steps = list(filter(lambda x: f[x]['000 Scalars'][0] % 1 == 0, sorted(f.keys(), key = lambda x: int(x[5:]))))
+            for step_num, step in enumerate(steps):
                 
-                # Read the date
+                # Read the data
                 i = np.array(f[step]['032 Name'])
                 m = np.array(f[step]['023 M'])
                 x = np.array([f[step]['001 X1'], f[step]['002 X2'], f[step]['003 X3']])
@@ -66,12 +63,10 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
                 tree_ffps = KDTree(x[axes,:][:,ffps].T, leafsize = leafsize)
                 neighbours = tree_ffps.query_ball_tree(tree_stars, 0.01)
                 
-                print('    Time for distance calculation: {}')
-                
-                #print(x[axes,:][:,ffps][:,:5])
-                #print([item for sublist in neighbours[:5] for item in sublist])
+            print(f'      Time for distance calculation of {len(list(steps))} steps: {time() - time_search:.2f} sec')
         
-        time_average = 0.5 * time_average + 0.5 * (time() - start_time) / 60
+        total_time = time() - time_read
+        print(f'      Total time for snapshot: {total_time:.2f} sec -> estimated remaining: {(total_time * (len(snaps) - snap_num) / 60):.1f} min')
         
     print(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())))
     for e in np.arange(len(events['time'])):
