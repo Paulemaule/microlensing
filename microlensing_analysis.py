@@ -1,5 +1,5 @@
 import os
-from time import time_ns
+from time import time
 import h5py
 import numpy as np
 from scipy.spatial import KDTree
@@ -26,16 +26,19 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
     # The dictionary that will store the found microlensing events
     events = {'time': [], 'id_ffp': [], 'id_star': [], 'x1_ffp': [], 'x2_ffp': [], 'x3_ffp': [], 'x1_star':[], 'x2_star':[], 'x3_star':[]}
     
-    for snap in sorted(filter(lambda x: ('snap' in x), os.listdir(runs_path + run)), key = lambda x: int(x.split('.')[1][3:])):
+    time_average = 5
+    
+    snaps = sorted(filter(lambda x: ('snap' in x), os.listdir(runs_path + run)), key = lambda x: int(x.split('.')[1][3:]))
+    for snap in snaps:
         #if int(snap.split('.')[1][3:]) == 20: break
-        start_time = time_ns()
+        start_time = time()
+        time_remaining = time_average * (int(snaps[-1].split('.')[1][3:]) - int(snap.split('.')[1][3:]))
+        print('    Snapshot {} of {} | time remaining: {:.2f} min  '.format(snap.split('.')[1][3:], snaps[-1].split('.')[1][3:], time_remaining))
         
         with h5py.File(run_path + snap) as f:
             for step in sorted(f.keys(), key = lambda x: int(x[5:])):
                 # Exclude the timesteps with non integer times
                 if f[step]['000 Scalars'][0] % 1 != 0: continue
-                
-                print('    On Snapshot {} - at time {:.0f}'.format(snap.split('.')[1][3:], f[step]['000 Scalars'][0]))
                 
                 # Read the date
                 i = np.array(f[step]['032 Name'])
@@ -61,6 +64,8 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
                 
                 #print(x[axes,:][:,ffps][:,:5])
                 #print([item for sublist in neighbours[:5] for item in sublist])
+        
+        time_average = 0.5 * time_average + 0.5 * (time() - start_time) / 60
         
     print(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())))
     for e in np.arange(len(events['time'])):
