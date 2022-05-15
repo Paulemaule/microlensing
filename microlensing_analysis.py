@@ -9,6 +9,25 @@ from scipy.spatial import KDTree
 runs_path = 'H:/Bachelorarbeit/Daten/runs/'
 if not os.path.exists(runs_path): runs_path = '/work/Tit6/paul.zuern/data/runs/'
 
+# Defining the neighbour finding funtion
+
+def find_closest_kdtree(pos, axis, mass):
+    mass_threshold = 1e-3
+    stars = mass > mass_threshold
+    ffps = mass < mass_threshold
+    
+    axis = [0,1]
+    
+    leafsize = 20
+    tree_stars = KDTree(pos[axis,:][:,stars].T, leafsize = leafsize)
+    tree_ffps = KDTree(pos[axis,:][:,ffps].T, leafsize = leafsize)
+    neighbours = tree_ffps.query_ball_tree(tree_stars, 0.001)
+    
+    return neighbours
+
+def find_closest_digitize(pos, axis, mass):
+    return None
+
 # Reading the data
 
 for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
@@ -51,17 +70,9 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
                 m = m[sort]
                 x = x[:,sort]
                 
-                stars = m > 1e-3
-                ffps = m < 1e-3
-                
-                # Choose the axis along which the events are to be observed
-                axes = [0,1]
-                
-                # Construct the KD-Tree
-                leafsize = 20
-                tree_stars = KDTree(x[axes,:][:,stars].T, leafsize = leafsize)
-                tree_ffps = KDTree(x[axes,:][:,ffps].T, leafsize = leafsize)
-                neighbours = tree_ffps.query_ball_tree(tree_stars, 0.01)
+                # Search for neighbours                
+                neighbours = find_closest_kdtree(x, [0,1], m)
+                print(neighbours)
                 
             print(f'      Time for distance calculation of {len(list(steps))} steps: {time() - time_search:.2f} sec')
         
@@ -73,5 +84,5 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
         print(('   '.join(['{:13s}',] * len(events.keys())).format(*['{:.6g}'.format(events[key][e]) for key in events.keys()])))
     
     break
-    
+
 print('END')
