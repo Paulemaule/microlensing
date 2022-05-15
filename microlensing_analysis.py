@@ -9,11 +9,19 @@ from scipy.spatial import KDTree
 runs_path = 'H:/Bachelorarbeit/Daten/runs/'
 if not os.path.exists(runs_path): runs_path = '/work/Tit6/paul.zuern/data/runs/'
 
+# Defining global final variables
+
+G = 6.6743 * 1e-11       # gravitational constant : m^3 / kg / s^2
+c = 299792458            # lightspeed : m / s
+J_m = 1.898 * 1e-27      # jupyter mass : kg
+
+mass_threshold = 1e-3    # in NBODY mass units
+
+
 # Defining the neighbour finding funtion
 
 def find_closest_kdtree(pos, axis, mass):
-    mass_threshold = 1e-3
-    stars = mass > mass_threshold
+    stars = mass >= mass_threshold
     ffps = mass < mass_threshold
     
     axis = [0,1]
@@ -26,7 +34,8 @@ def find_closest_kdtree(pos, axis, mass):
     return neighbours
 
 def find_closest_digitize(pos, axis, mass):
-    return None
+    stars = mass >= mass_threshold
+    ffps = mass < mass_threshold
 
 # Reading the data
 
@@ -43,9 +52,12 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
     print(f'  General Properties: N = {int(N)}, RBAR = {RBAR:.3f}, TSCALE = {TSCALE:.3f}')
     
     # The dictionary that will store the found microlensing events
-    events = {'time': [], 'id_ffp': [], 'id_star': [], 'x1_ffp': [], 'x2_ffp': [], 'x3_ffp': [], 'x1_star':[], 'x2_star':[], 'x3_star':[]}
+    events = {'time': [], 'id_ffp': [], 'id_star': [], 
+              'x1_ffp': [], 'x2_ffp': [], 'x3_ffp': [], 
+              'x1_star':[], 'x2_star':[], 'x3_star':[]}
     
-    snaps = sorted(filter(lambda x: ('snap' in x), os.listdir(runs_path + run)), key = lambda x: int(x.split('.')[1][3:]))
+    snaps = sorted(filter(lambda x: ('snap' in x), os.listdir(runs_path + run)), 
+                   key = lambda x: int(x.split('.')[1][3:]))
     for snap_num, snap in enumerate(snaps):
         
         time_read = time()
@@ -57,7 +69,8 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
             time_search = time()
             
             # Sort the step keys and filter those that contain data of integer timesteps
-            steps = list(filter(lambda x: f[x]['000 Scalars'][0] % 1 == 0, sorted(f.keys(), key = lambda x: int(x[5:]))))
+            steps = list(filter(lambda x: f[x]['000 Scalars'][0] % 1 == 0, 
+                                sorted(f.keys(),key = lambda x: int(x[5:]))))
             for step_num, step in enumerate(steps):
                 
                 # Read the data
