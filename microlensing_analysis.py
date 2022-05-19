@@ -9,6 +9,9 @@ from scipy.spatial import KDTree
 runs_path = 'H:/Bachelorarbeit/Daten/runs/'
 if not os.path.exists(runs_path): runs_path = '/work/Tit6/paul.zuern/data/runs/'
 
+results_path = 'H:/Microlensing/data/'
+if not os.path.exists(results_path): results_path = '/home/Tit5/paul.zuern/microlensing/data/'
+
 # Defining global final variables
 
 G = 6.6743 * 1e-11       # gravitational constant : m^3 / kg / s^2
@@ -17,25 +20,23 @@ J_m = 1.898 * 1e-27      # jupyter mass : kg
 
 mass_threshold = 1e-3    # in NBODY mass units
 
+lensing_threshold = 0.002 # in NBODY lenght units
+
 
 # Defining the neighbour finding funtion
 
-def find_closest_kdtree(pos, axis, mass):
-    stars = mass >= mass_threshold
-    ffps = mass < mass_threshold
-    
-    axis = [0,1]
-    
+def find_closest_kdtree(pos_stars, pos_ffps):
     leafsize = 20
-    tree_stars = KDTree(pos[axis,:][:,stars].T, leafsize = leafsize)
-    tree_ffps = KDTree(pos[axis,:][:,ffps].T, leafsize = leafsize)
-    neighbours = tree_ffps.query_ball_tree(tree_stars, 0.001)
+    
+    tree_stars = KDTree(pos_stars.T, leafsize = leafsize)
+    tree_ffps = KDTree(pos_ffps.T, leafsize = leafsize)
+    
+    neighbours = tree_ffps.query_ball_tree(tree_stars, lensing_threshold)
     
     return neighbours
 
-def find_closest_digitize(pos, axis, mass):
-    stars = mass >= mass_threshold
-    ffps = mass < mass_threshold
+def find_closest_digitize(pos_stars, pos_ffps):
+    return -1
 
 # Reading the data
 
@@ -65,14 +66,14 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
         
         with h5py.File(run_path + snap) as f:
             
-            print(f'      Time for File reading: {time() - time_read:.2f} sec')
+            #print(f'      Time for File reading: {time() - time_read:.2f} sec')
             time_search = time()
             
             # Sort the step keys and filter those that contain data of integer timesteps
             steps = list(filter(lambda x: f[x]['000 Scalars'][0] % 1 == 0, 
                                 sorted(f.keys(),key = lambda x: int(x[5:]))))
+            
             for step_num, step in enumerate(steps):
-                
                 # Read the data
                 i = np.array(f[step]['032 Name'])
                 m = np.array(f[step]['023 M'])
@@ -83,19 +84,43 @@ for run in sorted(os.listdir(runs_path), key = lambda x: int(x[4:])):
                 m = m[sort]
                 x = x[:,sort]
                 
-                # Search for neighbours                
-                neighbours = find_closest_kdtree(x, [0,1], m)
-                print(neighbours)
+                stars = m >= mass_threshold
+                ffps = m < mass_threshold
                 
-            print(f'      Time for distance calculation of {len(list(steps))} steps: {time() - time_search:.2f} sec')
+                # The axis along which to search for microlensing
+                axis = [0,1]
+                
+                # Search for neighbours
+                neighbours = find_closest_kdtree(x[:,stars][axis,:], x[:,ffps][axis,:])
+                
+                for ffp_num, star_neighbour in enumerate(neighbours):
+                    for star_num in star_neighbour:
+                        events['time'].append(f[step]['000 Scalars'][0])
+                        events['id_star'].append(i[stars][star_num])
+                        events['id_ffp'].append(i[ffps][ffp_num])
+                        events['x1_star'].append(x[:,stars][:,star_num][0])
+                        events['x2_star'].append(x[:,stars][:,star_num][1])
+                        events['x3_star'].append(x[:,stars][:,star_num][2])
+                        events['x1_ffp'].append(x[:,ffps][:,ffp_num][0])
+                        events['x2_ffp'].append(x[:,ffps][:,ffp_num][1])
+                        events['x3_ffp'].append(x[:,ffps][:,ffp_num][2])
+                
+                #break # break step loop
+            #print(f'      Time for distance calculation of {len(list(steps))} steps: {time() - time_search:.2f} sec')
         
         total_time = time() - time_read
         print(f'      Total time for snapshot: {total_time:.2f} sec -> estimated remaining: {(total_time * (len(snaps) - snap_num) / 60):.1f} min')
-        
-    print(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())))
-    for e in np.arange(len(events['time'])):
-        print(('   '.join(['{:13s}',] * len(events.keys())).format(*['{:.6g}'.format(events[key][e]) for key in events.keys()])))
+        #break # break snap loop
     
-    break
+    #print(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())))
+    #for e in np.arange(len(events['time'])):
+    #    print(('   '.join(['{:13s}',] * len(events.keys())).format(*['{:.6g}'.format(events[key][e]) for key in events.keys()])))
+    
+    with open(results_path + 'out.txt', 'w+') as f:
+        f.write(('   '.join(['{:13s}',] * len(events.keys())).format(*events.keys())) + '\n')
+        for e in range(len(events['time'])):
+            f.write(('   '.join(['{:13s}',] * len(events.keys())).format(*['{:.6g}'.format(events[key][e]) for key in events.keys()])) + '\n')
+    
+    break # break run loop
 
 print('END')
